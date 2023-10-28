@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>文搜图</title>
+</head>
+<body>
+<h1>Upload Image</h1>
+<form id="uploadForm" method="post" enctype="multipart/form-data">
+    <input type="file" name="image" required>
+    <button type="submit">Upload</button>
+</form>
+
+<button id="showGallery">图库</button>
+<div id="gallery"></div>
+
+<h2>图片搜索</h2>
+<input type="text" id="searchQuery" placeholder="输入搜索词">
+<button id="searchButton">查询</button>
+<div id="searchResults"></div>
+
+<script>
+    document.getElementById('uploadForm').addEventListener('submit', function (e) {
+        e.preventDefault();
+        var formData = new FormData(this);
+        fetch('/upload/', {
+            method: 'POST',
+            body: formData,
+        })
+            .then(response => response.json())
+            .then(data => alert(data.message))
+            .catch(error => console.error('Error:', error));
+    });
+
+    document.getElementById('showGallery').addEventListener('click', function () {
+        fetch('/database/')
+            .then(response => response.json())
+            .then(data => {
+                var gallery = document.getElementById('gallery');
+                gallery.innerHTML = '';
+                data.images.forEach(pic => {
+                    var img = document.createElement('img');
+                    img.src = pic.url;
+                    img.alt = pic.name;
+                    img.width = 100;
+                    gallery.appendChild(img);
+                });
+            })
+            .catch(error => console.error('Error:', error));
+    });
+
+    document.getElementById('searchButton').addEventListener('click', function () {
+        var query = document.getElementById('searchQuery').value;
+        fetch('/search/?query=' + encodeURIComponent(query))
+            .then(response => response.json())
+            .then(data => {
+                var searchResults = document.getElementById('searchResults');
+                searchResults.innerHTML = '';
+                data.images.forEach(pic => {
+                    var img = document.createElement('img');
+                    img.src = pic.url;
+                    img.alt = pic.name;
+                    img.width = 100;
+                    searchResults.appendChild(img);
+                });
+            })
+            .catch(error => console.error('Error:', error));
+    });
+</script>
+</body>
+</html>

@@ -1,0 +1,19 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>测试数据渲染</title>
+</head>
+<body>
+<h1>学生信息表</h1>
+<ul>
+    {% for student in students %}
+        <li>
+            <a href="#">{{ student.name }}</a>
+            <!-- 显示学生的图片 -->
+            <img src="{{ student.url }}" alt="{{ student.name }}" width="100"> {{ student.name }}
+        </li>
+    {% endfor %}
+</ul>
+</body>
+</html>
