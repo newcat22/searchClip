@@ -63,10 +63,13 @@ from django.core.files.storage import default_storage
 def upload_image(request):
     if request.method == 'POST' and request.FILES.get('image'):
         image = request.FILES['image']
-        file_path = os.path.join(settings.BASE_DIR, 'images', image.name)
+        #file_path = os.path.join(settings.BASE_DIR, 'images', image.name)
+        file_path = os.path.join('images', image.name)
+        print(file_path)
         with default_storage.open(file_path, 'wb+') as destination:
             for chunk in image.chunks():
                 destination.write(chunk)
+        engine.add_image(image_path=file_path)
         return JsonResponse({'message': 'Image uploaded successfully'})
     return JsonResponse({'message': 'Invalid request'}, status=400)
 
