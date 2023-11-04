@@ -30,4 +30,5 @@ urlpatterns = [
                   path('upload/', myApp.views.upload_image),
                   path('database/', myApp.views.image_database),
                   path('search/', myApp.views.search_images),
+                  path('delete/', myApp.views.delete),
               ] + static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)

@@ -109,3 +109,24 @@ def search_images(request):
         pic = Pic(name=image_name, url=image_name)
         images.append(pic.to_dict())
     return JsonResponse({'images': images})
+
+# 删除图片
+@require_GET
+def delete(request):
+    query = unquote(request.GET.get('query', ''))
+    simimarity, paths = engine.search_image_by_text(query, 2, return_type="path")
+    image_dir = os.path.join(settings.MEDIA_ROOT, 'images')
+
+    if not os.path.exists(image_dir):
+        return JsonResponse({'images': []})
+
+    images = []
+    # for image_name in os.listdir(image_dir):
+    #     image_url = settings.MEDIA_URL + 'images/' + image_name
+    #     pic = Pic(name=image_name, url=image_url)
+    #     images.append(pic.to_dict())
+    for image_name in paths:
+        #image_url = settings.MEDIA_URL + 'images/' + image_name
+        pic = Pic(name=image_name, url=image_name)
+        images.append(pic.to_dict())
+    return JsonResponse({'images': images})
