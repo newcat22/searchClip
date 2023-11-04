@@ -85,7 +85,8 @@ def image_database(request):
         image_url = os.path.join(settings.MEDIA_URL, 'images', image_name)
         pic = Pic(name=image_name, url=image_url)
         images.append(pic.to_dict())
-
+    pic1 = Pic(name="Moon.jpg", url="https://s2.loli.net/2023/11/04/Y7nHOuRdrG5Ievh.jpg")
+    images.append(pic1.to_dict())
     return JsonResponse({'images': images})
 
 
