@@ -158,8 +158,13 @@ def image_database(request):
 @require_GET
 def search_images(request):
     query = unquote(request.GET.get('query', ''))
-    simimarity, paths = engine.search_image_by_text(query, 2, return_type="path")
-
+    print("query",query)
+    paths = []
+    try:
+        simimarity, paths = engine.search_image_by_text(query, 1, return_type="path")
+    except Exception as e:
+        # 当发生任何异常时执行的代码
+        print("An error occurred:", e)
 
     images = []
     uploaded_images = get_uploaded_images()  # 获取上传图片集合
