@@ -111,22 +111,17 @@ def search_images(request):
     return JsonResponse({'images': images})
 
 # 删除图片
-@require_GET
+@csrf_exempt
 def delete(request):
-    query = unquote(request.GET.get('query', ''))
-    simimarity, paths = engine.search_image_by_text(query, 2, return_type="path")
-    image_dir = os.path.join(settings.MEDIA_ROOT, 'images')
-
-    if not os.path.exists(image_dir):
-        return JsonResponse({'images': []})
-
-    images = []
-    # for image_name in os.listdir(image_dir):
-    #     image_url = settings.MEDIA_URL + 'images/' + image_name
-    #     pic = Pic(name=image_name, url=image_url)
-    #     images.append(pic.to_dict())
-    for image_name in paths:
-        #image_url = settings.MEDIA_URL + 'images/' + image_name
-        pic = Pic(name=image_name, url=image_name)
-        images.append(pic.to_dict())
-    return JsonResponse({'images': images})
+    if request.method == 'POST':
+        image_name = request.POST.get('image_name', '')
+        print(image_name)
+        image_path = os.path.join('images', image_name)
+        print(image_path)
+        if os.path.exists(image_path):
+            os.remove(image_path)
+            engine.remove_image_feature(image_path)
+            return JsonResponse({'message': 'Image deleted successfully'})
+        else:
+            return JsonResponse({'message': 'Image not found'}, status=404)
+    return JsonResponse({'message': 'Invalid request'}, status=400)

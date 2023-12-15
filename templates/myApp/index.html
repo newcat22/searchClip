@@ -19,6 +19,11 @@
 <button id="searchButton">查询</button>
 <div id="searchResults"></div>
 
+<!-- 在原有的HTML中添加 -->
+<h2>图库管理</h2>
+<div id="manageGallery"></div>
+
+
 <script>
     document.getElementById('uploadForm').addEventListener('submit', function (e) {
         e.preventDefault();
@@ -66,6 +71,54 @@
             })
             .catch(error => console.error('Error:', error));
     });
+
+    // 在原有的JavaScript代码中添加
+function deleteImage(imageName) {
+    fetch('/delete/', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/x-www-form-urlencoded',
+        },
+        body: `image_name=${encodeURIComponent(imageName)}`
+    })
+    .then(response => response.json())
+    .then(data => alert(data.message))
+    .catch(error => console.error('Error:', error))
+    .finally(() => {
+        // 重新加载图库以显示最新状态
+        document.getElementById('showGallery').click();
+    });
+}
+
+// 修改展示图库的逻辑，为每个图片添加删除按钮
+document.getElementById('showGallery').addEventListener('click', function () {
+    fetch('/database/')
+        .then(response => response.json())
+        .then(data => {
+            var manageGallery = document.getElementById('manageGallery');
+            manageGallery.innerHTML = '';
+            data.images.forEach(pic => {
+                var imgDiv = document.createElement('div');
+                var img = document.createElement('img');
+                var deleteBtn = document.createElement('button');
+
+                img.src = pic.url;
+                img.alt = pic.name;
+                img.width = 100;
+
+                deleteBtn.innerText = '删除';
+                deleteBtn.addEventListener('click', function() {
+                    deleteImage(pic.name);
+                });
+
+                imgDiv.appendChild(img);
+                imgDiv.appendChild(deleteBtn);
+                manageGallery.appendChild(imgDiv);
+            });
+        })
+        .catch(error => console.error('Error:', error));
+});
+
 </script>
 </body>
 </html>
