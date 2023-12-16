@@ -161,7 +161,7 @@ def search_images(request):
     print("query",query)
     paths = []
     try:
-        simimarity, paths = engine.search_image_by_text(query, 1, return_type="path")
+        simimarity, paths = engine.search_image_by_text(query, 5, return_type="path")
     except Exception as e:
         # 当发生任何异常时执行的代码
         print("An error occurred:", e)
