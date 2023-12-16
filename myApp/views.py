@@ -190,7 +190,7 @@ def delete(request):
             os.remove(image_path)
             engine.remove_image_feature(image_path)
             delete_image(image_name)
-            return JsonResponse({'message': 'Image deleted successfully'})
+            return JsonResponse({'message': 'Image deleted successfully','result': 'success'})
         else:
-            return JsonResponse({'message': 'Image not found'}, status=404)
-    return JsonResponse({'message': 'Invalid request'}, status=400)
+            return JsonResponse({'message': 'Image not found','result': 'fail'}, status=404)
+    return JsonResponse({'message': 'Invalid request','result': 'fail'}, status=400)
