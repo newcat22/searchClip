@@ -4,7 +4,7 @@ from minio.error import S3Error
 def main():
     # 创建一个 Minio 客户端对象
     client = Minio(
-        "192.168.163.128:9000",
+        "192.168.163.130:9000",
         access_key="admin",
         secret_key="xrj12345678",
         secure=False

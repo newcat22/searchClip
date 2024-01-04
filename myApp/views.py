@@ -8,7 +8,7 @@ import torch
 from PIL import Image
 from django.views.decorators.http import require_GET
 from urllib.parse import unquote
-
+from myApp.models import Image
 # %%
 engine = Engine()
 engine.load_model("/home/long/model/clip-vit-large-patch14", device="cuda", dtype=torch.float32)
@@ -21,8 +21,8 @@ engine.load_model("/home/long/model/clip-vit-large-patch14", device="cuda", dtyp
 
 import requests
 import json
-import os
 
+import time
 # 全局字典来存储图片的URL和删除链接
 uploaded_images = {}
 headers = {'Authorization': '6kUT2VoDAqiLnUu6gSuN7VdnfuwwOUvY'}
@@ -46,6 +46,7 @@ class Pic:
 
     def to_dict(self):
         return {'name': self.name, 'url': self.url}
+
 
 
 # 测试案例
@@ -75,18 +76,31 @@ def upload(path):
     # 替换为你的API密钥
     files = {'smfile': open(path, 'rb')}
     url = 'https://sm.ms/api/v2/upload'
-    response = requests.post(url, files=files, headers=headers).json()
-    print(json.dumps(response))
+    try:
+        response = requests.post(url, files=files, headers=headers, timeout=20)
+        response_data = response.json()
+        print(json.dumps(response_data))
 
-    # 检查上传是否成功并保存URL和删除链接
-    if response.get("success"):
-        image_url = response['data']['url']
-        delete_url = response['data']['delete']
-        uploaded_images[os.path.basename(path)] = {'url': image_url, 'delete': delete_url}
-        print("Uploaded and URL saved:", image_url)
-    else:
-        print("Upload failed")
-
+        if response_data.get("success"):
+            image_url = response_data['data']['url']
+            delete_url = response_data['data']['delete']
+            image_name = os.path.basename(path)
+            uploaded_images[os.path.basename(path)] = {'url': image_url,  'delete':delete_url}
+            print("Uploaded and URL saved:", image_url)
+            try:
+                # 创建Image模型实例
+                image_instance = Image(name=image_name, url=image_url)
+                # # 保存实例到数据库
+                image_instance.save()
+                print("Image information saved to the database")
+            except Exception as e:
+                print(f"Error saving image information to the database: {str(e)}")
+        else:
+            print("Upload failed")
+    except requests.exceptions.Timeout:
+        print("Upload timed out. Deleting the uploaded image...")
+        os.remove(path)
+        print("Uploaded image deleted")
 
 def delete_image(image_name):
     """
@@ -121,15 +135,25 @@ def get_uploaded_images():
 def upload_image(request):
     if request.method == 'POST' and request.FILES.get('image'):
         image = request.FILES['image']
-        #file_path = os.path.join(settings.BASE_DIR, 'images', image.name)
         file_path = os.path.join('images', image.name)
         print(file_path)
+
         with default_storage.open(file_path, 'wb+') as destination:
             for chunk in image.chunks():
                 destination.write(chunk)
-        engine.add_image(image_path=file_path)
-        upload(file_path) #上传图片到图床
-        return JsonResponse({'message': 'Image uploaded successfully'})
+
+        try:
+            # 创建 Image 模型实例
+
+            # 添加图片到图像检索引擎
+            engine.add_image(image_path=file_path)
+            upload(file_path)
+            return JsonResponse({'message': 'Image uploaded successfully'})
+        except Exception as e:
+            # 处理保存失败的情况
+            print(f"Error uploading image: {str(e)}")
+            return JsonResponse({'message': 'Image upload failed'}, status=500)
+
     return JsonResponse({'message': 'Invalid request'}, status=400)
 
 
@@ -140,10 +164,11 @@ def image_database(request):
     #     return JsonResponse({'images': []})
     images = []
     # 遍历uploaded_images字典
-    for filename, info in uploaded_images.items():
-        if 'url' in info:  # 确保每个项都有URL
-            pic = Pic(name=filename, url=info['url'])  # 创建Pic对象
-            images.append(pic.to_dict())  # 将Pic对象添加到列表中
+    all_images = Image.objects.all()
+
+    for image in all_images:
+        pic = Pic(name=image.name, url=image.url)
+        images.append(pic.to_dict())
 
 
     # for image_name in os.listdir(image_dir):
@@ -160,8 +185,11 @@ def search_images(request):
     query = unquote(request.GET.get('query', ''))
     print("query",query)
     paths = []
+
+    num_images = len(get_uploaded_images())  # 获取上传图片集合的数量
+    k = min(num_images, 5)  # 选择较小的值作为k值
     try:
-        simimarity, paths = engine.search_image_by_text(query, 5, return_type="path")
+        simimarity, paths = engine.search_image_by_text(query, k, return_type="path")
     except Exception as e:
         # 当发生任何异常时执行的代码
         print("An error occurred:", e)
@@ -177,7 +205,6 @@ def search_images(request):
             pic = Pic(name=image_name, url=url)
             images.append(pic.to_dict())
     return JsonResponse({'images': images})
-
 # 删除图片
 @csrf_exempt
 def delete(request):
@@ -188,9 +215,10 @@ def delete(request):
         print(image_path)
         if os.path.exists(image_path):
             os.remove(image_path)
+            Image.objects.filter(name=image_name).delete()
             engine.remove_image_feature(image_path)
             delete_image(image_name)
-            return JsonResponse({'message': 'Image deleted successfully','result': 'success'})
+            return JsonResponse({'message': 'Image deleted successfully','result':'success'})
         else:
-            return JsonResponse({'message': 'Image not found','result': 'fail'}, status=404)
-    return JsonResponse({'message': 'Invalid request','result': 'fail'}, status=400)
+            return JsonResponse({'message': 'Image not found'}, status=404)
+    return JsonResponse({'message': 'Invalid request'}, status=400)

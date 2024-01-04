@@ -81,8 +81,12 @@ WSGI_APPLICATION = 'searchClip.wsgi.application'
 
 DATABASES = {
     'default': {
-        'ENGINE': 'django.db.backends.sqlite3',
-        'NAME': BASE_DIR / 'db.sqlite3',
+        'ENGINE': 'django.db.backends.mysql',
+        'NAME': 'clip1',
+        'USER': 'root',
+        'PASSWORD': '123456',
+        'HOST': '192.168.163.130',  # 注意这里改为小写的 'host'
+        'PORT': '3307',
     }
 }
 
