@@ -1,5 +1,6 @@
 from django.shortcuts import render
-
+from minio import Minio
+from minio.error import S3Error
 # Create your views here.
 from django.http import HttpResponse
 # 查询图片
@@ -27,7 +28,7 @@ import time
 uploaded_images = {}
 headers = {'Authorization': '6kUT2VoDAqiLnUu6gSuN7VdnfuwwOUvY'}
 
-
+engine.load_cache()
 # 首页
 def index(request):
     return render(request, 'myApp/index.html')
@@ -60,11 +61,91 @@ def students(request):
     return render(request, 'myApp/test.html', {'students': studentsList})
 
 
+
 import os
 from django.conf import settings
 from django.http import JsonResponse
 from django.views.decorators.csrf import csrf_exempt
 from django.core.files.storage import default_storage
+
+# 创建一个 Minio 客户端对象
+client = Minio(
+    "192.168.163.130:9000",
+    access_key="admin",
+    secret_key="xrj12345678",
+    secure=False
+)
+bucket_name = "clip"  # 图片桶的名称
+
+# 上传图片
+@csrf_exempt
+def upload_image_minio(request):
+    if request.method == 'POST' and request.FILES.get('image'):
+        image = request.FILES['image']
+        file_path = os.path.join('images', image.name)
+        print(file_path)
+
+        with default_storage.open(file_path, 'wb+') as destination:
+            for chunk in image.chunks():
+                destination.write(chunk)
+
+        try:
+            # 创建 Image 模型实例
+
+            # 添加图片到图像检索引擎
+            engine.add_image(image_path=file_path)
+            engine.save_cache()
+            upload_minio(file_path)
+            return JsonResponse({'message': 'Image uploaded successfully'})
+        except Exception as e:
+            # 处理保存失败的情况
+            print(f"Error uploading image: {str(e)}")
+            engine.remove_image_feature(path=file_path)
+            return JsonResponse({'message': 'Image upload failed'}, status=500)
+
+    return JsonResponse({'message': 'Invalid request'}, status=400)
+
+
+def upload_minio(path):
+    """
+    上传图片到图床
+    :param path:
+    :return:
+    """
+    # 替换为你的API密钥
+
+    image_name = os.path.basename(path)
+
+    object_name = image_name
+    file_path = path  # 替换为您的图片路径
+
+    try:
+        # 上传图片
+        client.fput_object(bucket_name, object_name, file_path)
+
+        # 获取图片的访问 URL  Uploaded Image URL: http://192.168.163.128:9000/clip/code.png?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=admin%2F20231221%2Fus-east-1%2Fs3%2Faws4_request&X-Amz-Date=20231221T140954Z&X-Amz-Expires=604800&X-Amz-SignedHeaders=host&X-Amz-Signature=af7a4feb445ac10845fd00b70ae29cb3a42ef4075a21f18b35614f0b2f4d4783
+        object_url = client.presigned_get_object(bucket_name, object_name)
+        
+        # 创建Image模型实例
+        image_instance = Image(name=image_name, url=object_url)
+        # # 保存实例到数据库
+        image_instance.save()
+        print("Image information saved to the database")
+        print("Uploaded Image URL:", object_url)
+    except S3Error as err:
+        print("S3Error:", err)
+        print("Upload timed out. Deleting the uploaded image...")
+        os.remove(path)
+        print("Uploaded image deleted")
+        raise err
+    except Exception as e:
+        print(f"Error saving image information to the database: {str(e)}")
+        os.remove(path)
+        print("Uploaded image deleted")
+        remove_object = client.remove_object(bucket_name, object_name)
+        #待优化，删除失败补偿逻辑。
+        raise e
+
 
 
 def upload(path):
@@ -85,6 +166,7 @@ def upload(path):
             image_url = response_data['data']['url']
             delete_url = response_data['data']['delete']
             image_name = os.path.basename(path)
+            print("image_name"+image_name)
             uploaded_images[os.path.basename(path)] = {'url': image_url,  'delete':delete_url}
             print("Uploaded and URL saved:", image_url)
             try:
@@ -108,18 +190,14 @@ def delete_image(image_name):
     :param image_name:
     :return:
     """
-    image_info = uploaded_images.get(image_name)
-    if not image_info:
-        print("Image not found")
-        return
-
-    # 发送删除请求
-    response = requests.get(image_info['delete'])
-    if response.status_code == 200:
-        del uploaded_images[image_name]
+    try:
+        # 删除图片
+        client.remove_object(bucket_name, image_name)
         print("Image deleted successfully")
-    else:
-        print("Failed to delete image")
+    except S3Error as err:
+        print("S3Error during deletion:", err)
+        raise err
+
 
 
 def get_uploaded_images():
@@ -127,7 +205,9 @@ def get_uploaded_images():
     获取图库图像（待做持久化）
     :return:
     """
-    return uploaded_images
+    # 遍历uploaded_images字典
+    all_images = Image.objects.all()
+    return all_images
 
 
 # 上传图片
@@ -136,7 +216,7 @@ def upload_image(request):
     if request.method == 'POST' and request.FILES.get('image'):
         image = request.FILES['image']
         file_path = os.path.join('images', image.name)
-        print(file_path)
+        print("upload_image"+ file_path)
 
         with default_storage.open(file_path, 'wb+') as destination:
             for chunk in image.chunks():
@@ -185,25 +265,28 @@ def search_images(request):
     query = unquote(request.GET.get('query', ''))
     print("query",query)
     paths = []
-
-    num_images = len(get_uploaded_images())  # 获取上传图片集合的数量
-    k = min(num_images, 5)  # 选择较小的值作为k值
-    try:
-        simimarity, paths = engine.search_image_by_text(query, k, return_type="path")
-    except Exception as e:
-        # 当发生任何异常时执行的代码
-        print("An error occurred:", e)
-
     images = []
-    uploaded_images = get_uploaded_images()  # 获取上传图片集合
+    all_images = get_uploaded_images() # 获取上传图片集合
+    if all_images:
+        count = all_images.count()
+        print(count)
+        num_images = count  # 获取上传图片集合的数量
+        k = min(num_images, 5)  # 选择较小的值作为k值
+        print("较小值为",k)
+        try:
+            simimarity, paths = engine.search_image_by_text(query, k, return_type="path")
+        except Exception as e:
+            # 当发生任何异常时执行的代码
+            print("An error occurred:", e)
+            return JsonResponse({'fail': "查询报错"})
 
-    for path in paths:
-        image_name = os.path.basename(path) #获取图片名
-        uploaded_image = uploaded_images.get(image_name)
-        if uploaded_image:
-            url = uploaded_image.get('url', '')
-            pic = Pic(name=image_name, url=url)
-            images.append(pic.to_dict())
+        for path in paths:
+            image_name = os.path.basename(path) #获取图片名
+            for image in all_images:
+                if image_name == image.name:
+                    pic = Pic(name=image.name, url=image.url)
+                    images.append(pic.to_dict())
+
     return JsonResponse({'images': images})
 # 删除图片
 @csrf_exempt
@@ -220,5 +303,5 @@ def delete(request):
             delete_image(image_name)
             return JsonResponse({'message': 'Image deleted successfully','result':'success'})
         else:
-            return JsonResponse({'message': 'Image not found'}, status=404)
+            return JsonResponse({'message': 'Image deleted fail'}, status=404)
     return JsonResponse({'message': 'Invalid request'}, status=400)

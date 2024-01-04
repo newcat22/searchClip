@@ -27,7 +27,7 @@ urlpatterns = [
                   path('', myApp.views.index),
                   path('index/', myApp.views.index),
                   path('student/', myApp.views.students),
-                  path('upload/', myApp.views.upload_image),
+                  path('upload/', myApp.views.upload_image_minio),
                   path('database/', myApp.views.image_database),
                   path('search/', myApp.views.search_images),
                   path('delete/', myApp.views.delete),

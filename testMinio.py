@@ -24,7 +24,8 @@ def main():
     except S3Error as err:
         print("Error:", err)
 
-    #client.remove_object(bucket_name, object_name) 删除图片，bucket_name填clip，object_name填文件名
+    #remove_object = client.remove_object(bucket_name, object_name)
+   # print(remove_object)
 
 
 if __name__ == "__main__":
