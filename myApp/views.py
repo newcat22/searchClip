@@ -28,7 +28,15 @@ import time
 uploaded_images = {}
 headers = {'Authorization': '6kUT2VoDAqiLnUu6gSuN7VdnfuwwOUvY'}
 
-engine.load_cache()
+import os
+# 设置文件路径
+file_path = './image_paths.txt'
+
+# 检查文件是否存在
+if os.path.exists(file_path):
+    # 如果文件存在，则执行相应的代码
+    engine.load_cache()
+
 # 首页
 def index(request):
     return render(request, 'myApp/index.html')
@@ -60,7 +68,17 @@ def students(request):
     studentsList = [student1, student2]
     return render(request, 'myApp/test.html', {'students': studentsList})
 
+import signal
+import sys
 
+def signal_handler(signal, frame):
+    engine.save_cache()
+    # 在这里放置你想要执行的代码
+    print("在关闭服务器前执行的代码")
+    sys.exit(0)
+
+# 注册信号处理器
+signal.signal(signal.SIGINT, signal_handler)
 
 import os
 from django.conf import settings
@@ -94,7 +112,6 @@ def upload_image_minio(request):
 
             # 添加图片到图像检索引擎
             engine.add_image(image_path=file_path)
-            engine.save_cache()
             upload_minio(file_path)
             return JsonResponse({'message': 'Image uploaded successfully'})
         except Exception as e:
